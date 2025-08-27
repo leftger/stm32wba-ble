@@ -68,25 +68,60 @@ fn main() {
     );
     assert!(lib.exists(), "Missing lib dir: {}", lib.display());
 
-    // ---- link ST prebuilt static lib ----
-    println!("cargo:rustc-link-search=native={}", lib.display());
-    let libname = if cfg!(feature = "basic") {
-        "stm32wba_ble_stack_basic"
-    } else if cfg!(feature = "basic_plus") {
-        "stm32wba_ble_stack_basic_plus"
-    } else if cfg!(feature = "llo") {
-        "stm32wba_ble_stack_llo"
-    } else if cfg!(feature = "llobasic") {
-        "stm32wba_ble_stack_llobasic"
-    } else if cfg!(feature = "po") {
-        "stm32wba_ble_stack_po"
+    // ---- link ST prebuilt static lib (copy into OUT_DIR with lib prefix) ----
+    // Always re-run if the vendor lib dir changes (e.g., submodule updates)
+    println!("cargo:rerun-if-changed={}", lib.display());
+
+    // Only attempt to link the ARM archives when building for an embedded target
+    let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
+    let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
+
+    if target_os == "none" {
+        fs::create_dir_all(&out_dir).expect("create OUT_DIR failed");
+
+        // Copy any stm32wba_ble_stack*.a archives into OUT_DIR with a `lib` prefix,
+        // because `-lfoo` expects `libfoo.a` on disk.
+        let mut copied_any = false;
+        for entry in fs::read_dir(&lib).expect("read lib dir") {
+            let p = entry.expect("dir entry").path();
+            if let Some(name) = p.file_name().and_then(|n| n.to_str()) {
+                if name.starts_with("stm32wba_ble_stack") && name.ends_with(".a") {
+                    let dst = out_dir.join(format!("lib{}", name));
+                    fs::copy(&p, &dst).expect("copy static lib to OUT_DIR");
+                    copied_any = true;
+                }
+            }
+        }
+        assert!(copied_any, "No stm32wba_ble_stack*.a archives found in {}", lib.display());
+
+        // Choose which variant to link
+        let libname = if cfg!(feature = "basic") {
+            "stm32wba_ble_stack_basic"
+        } else if cfg!(feature = "basic_plus") {
+            "stm32wba_ble_stack_basic_plus"
+        } else if cfg!(feature = "llo") {
+            "stm32wba_ble_stack_llo"
+        } else if cfg!(feature = "llobasic") {
+            "stm32wba_ble_stack_llobasic"
+        } else if cfg!(feature = "po") {
+            "stm32wba_ble_stack_po"
+        } else {
+            "stm32wba_ble_stack_full"
+        };
+
+        // Ensure the chosen archive exists in OUT_DIR now that we've copied files
+        let chosen = out_dir.join(format!("lib{}.a", libname));
+        assert!(chosen.exists(), "Requested BLE stack variant '{}' not present at {}", libname, chosen.display());
+
+        // Link from OUT_DIR
+        println!("cargo:rustc-link-search=native={}", out_dir.display());
+        println!("cargo:rustc-link-lib=static={}", libname);
     } else {
-        "stm32wba_ble_stack_full"
-    };
-    println!("cargo:rustc-link-lib=static={}", libname);
+        println!("cargo:warning=skipping ST BLE stack link on host target ({})", target_os);
+    }
 
     // ---- bindgen setup ----
-    let out = PathBuf::from(env::var("OUT_DIR").unwrap());
+    let out_bindings = PathBuf::from(env::var("OUT_DIR").unwrap());
 
     let shim = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap())
         .join("shims")
@@ -196,7 +231,7 @@ fn main() {
     builder
         .generate()
         .expect("bindgen failed")
-        .write_to_file(out.join("bindings.rs"))
+        .write_to_file(out_bindings.join("bindings.rs"))
         .unwrap();
 
     println!("cargo:rerun-if-changed={}", inc.display());
