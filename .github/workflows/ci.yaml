@@ -10,6 +10,11 @@ jobs:
     # If you chose Option B (no symlink), uncomment the env below:
     # env:
     #   STM32CUBEWBA_DIR: ${{ github.workspace }}/external/STM32CubeWBA
+    env:
+      # Help bindgen find newlib's headers on Ubuntu runners.
+      # Both paths are valid on GH Actions depending on the toolchain version.
+      BINDGEN_EXTRA_CLANG_ARGS: "-isystem /usr/arm-none-eabi/include -isystem /usr/lib/arm-none-eabi/include"
+      ARM_NONE_EABI_GCC: arm-none-eabi-gcc
 
     steps:
       - name: Checkout (with submodules)
@@ -21,15 +26,39 @@ jobs:
       - name: Install Rust (stable) + Cortex-M target
         uses: dtolnay/rust-toolchain@stable
         with:
-          # Pick the one you actually use:
           targets: thumbv8m.main-none-eabihf
 
-      - name: Install system deps (ARM GCC + clang)
+      - name: Install system deps (ARM GCC + clang + newlib)
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-arm-none-eabi clang pkg-config
+          sudo apt-get install -y gcc-arm-none-eabi libnewlib-arm-none-eabi clang pkg-config
 
+      - name: Show toolchain layout (debug)
+        run: |
+          which arm-none-eabi-gcc
+          arm-none-eabi-gcc -v
+          echo "GCC include:      $(arm-none-eabi-gcc -print-file-name=include)"
+          echo "GCC include-fixed:$(dirname $(arm-none-eabi-gcc -print-file-name=include))/include-fixed || true"
+          echo "Sysroot:          $(arm-none-eabi-gcc -print-sysroot)"
+          ls -la /usr/arm-none-eabi/include || true
+          ls -la /usr/lib/arm-none-eabi/include || true
+
+      - name: List ST BLE static libs (debug)
+        run: |
+          set -x
+          ls -la STM32_WPAN/ble/stack/lib || true
+          find external -maxdepth 6 -name "stm32wba_ble_stack*.a" -o -name "libstm32wba_ble_stack*.a" -print || true
+
+      - name: Prefix ST static libs (CI only)
+        run: |
+          set -euo pipefail
+          dir=STM32_WPAN/ble/stack/lib
+          for a in "$dir"/stm32wba_ble_stack*.a; do
+            [ -f "$a" ] || continue
+            cp -f "$a" "$dir/lib$(basename "$a")"
+          done
+          ls -la "$dir"
+          
       - name: Build workspace
         run: |
           cargo build --workspace --locked
-
