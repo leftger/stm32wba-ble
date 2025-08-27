@@ -1,0 +1,5 @@
+[build]
+target = "thumbv8m.main-none-eabihf"   # WBA is Cortex-M33; use -eabi if you’re soft-float
+
+[target.thumbv8m.main-none-eabihf]
+runner = "probe-rs run --chip STM32WBA65RI"   # uncomment & adjust if you use probe-rs

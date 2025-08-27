@@ -1,0 +1,36 @@
+# ---- Rust / Cargo ---------------------------------------------------------
+/target/
+**/target/
+**/*.rs.bk
+**/*.rmeta
+**/*.rlib
+
+# If you ever generate artifacts alongside sources (not recommended):
+# **/*.d
+# **/*.o
+
+# ---- Toolchains / build byproducts (non-Cargo) ---------------------------
+# Keep these out in case you build with makefiles or exporters
+**/*.map
+**/*.elf
+**/*.bin
+**/*.hex
+**/*.lst
+**/*.dmp
+**/*.dSYM/
+
+# ---- Editors / OS ---------------------------------------------------------
+# macOS / Windows
+.DS_Store
+Thumbs.db
+
+# VS Code / JetBrains
+.vscode/
+.idea/
+
+# Vim / Emacs
+*~
+*.swp
+*.swo
+.#*
+

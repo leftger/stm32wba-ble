@@ -1,0 +1,25 @@
+[package]
+name = "st_wba_ble_sys"
+version = "0.1.0"
+edition = "2024"
+links = "stm32wba_ble_stack"
+
+[lib]
+crate-type = ["rlib"]
+
+[features]
+# Pick exactly one at the top-level depending crate; default to "full"
+default = ["full"]
+full = []
+basic = []
+basic_plus = []
+llo = []
+llobasic = []
+po = []
+
+[dependencies]
+cty = "0.2.2"
+
+[build-dependencies]
+bindgen = "0.72.0"
+cc = "1.2.34"

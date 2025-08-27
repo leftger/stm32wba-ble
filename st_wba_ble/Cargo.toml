@@ -1,0 +1,10 @@
+[package]
+name = "st_wba_ble"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+st_wba_ble_sys = { path = "../st_wba_ble_sys", features = ["full"] }
+embassy-executor = { git = "https://github.com/embassy-rs/embassy" }
+embassy-sync = { git = "https://github.com/embassy-rs/embassy" }
+
