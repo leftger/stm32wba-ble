@@ -5,7 +5,7 @@ use st_wba_ble_sys::ffi;
 // Only include modules that actually exist and are meant to build.
 pub mod evt;
 pub mod gatt;
-pub use gatt::{Service, Char, add_primary_service, add_char};
+pub use gatt::{Char, Service, add_char, add_primary_service};
 
 /// Lightweight status mapping for ACI return codes.
 pub mod status {
@@ -16,13 +16,19 @@ pub mod status {
     }
     impl From<i32> for BleStatus {
         fn from(v: i32) -> Self {
-            if v == 0 { BleStatus::Ok } else { BleStatus::Other(v) }
+            if v == 0 {
+                BleStatus::Ok
+            } else {
+                BleStatus::Other(v)
+            }
         }
     }
     pub type Result<T> = core::result::Result<T, BleStatus>;
 }
 
-pub struct Ble { _priv: () }
+pub struct Ble {
+    _priv: (),
+}
 
 impl Ble {
     /// Initialize the BLE stack for a GAP Peripheral role and optionally set the device name.
@@ -40,7 +46,9 @@ impl Ble {
                 0x01, // GAP Peripheral role (replace with ffi::GAP_PERIPHERAL_ROLE if present)
                 0,    // privacy off
                 dev_name.len() as u8,
-                &mut svc, &mut name_h, &mut app_h
+                &mut svc,
+                &mut name_h,
+                &mut app_h,
             ) as i32;
             if status::BleStatus::from(rc) != status::BleStatus::Ok {
                 return Err(status::BleStatus::from(rc));
@@ -51,9 +59,9 @@ impl Ble {
                 let rc = ffi::aci_gatt_update_char_value(
                     svc,
                     name_h,
-                    0u8,                        // offset
-                    dev_name.len() as u8,       // length
-                    dev_name.as_ptr(),          // value pointer
+                    0u8,                  // offset
+                    dev_name.len() as u8, // length
+                    dev_name.as_ptr(),    // value pointer
                 ) as i32;
                 if status::BleStatus::from(rc) != status::BleStatus::Ok {
                     return Err(status::BleStatus::from(rc));

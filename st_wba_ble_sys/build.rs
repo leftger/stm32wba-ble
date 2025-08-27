@@ -1,13 +1,14 @@
 use std::{
-    env,
-    fs,
+    env, fs,
     path::{Path, PathBuf},
     process::Command,
 };
 
 fn run(cmd: &str, args: &[&str]) -> Option<String> {
     let out = Command::new(cmd).args(args).output().ok()?;
-    if !out.status.success() { return None; }
+    if !out.status.success() {
+        return None;
+    }
     Some(String::from_utf8_lossy(&out.stdout).trim().to_string())
 }
 
@@ -22,10 +23,14 @@ fn add_isystem_if_exists(builder: bindgen::Builder, p: &Path, label: &str) -> bi
 
 fn main() {
     // ---- locate vendor tree from workspace root ----
-    let workspace_dir = env::var("CARGO_WORKSPACE_DIR").map(PathBuf::from).unwrap_or_else(|_| {
-        PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap())
-            .parent().unwrap().to_path_buf()
-    });
+    let workspace_dir = env::var("CARGO_WORKSPACE_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| {
+            PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap())
+                .parent()
+                .unwrap()
+                .to_path_buf()
+        });
 
     // Locate the BLE stack inside STM32CubeWBA. Prefer an env override; otherwise try common submodule paths.
     let root: PathBuf = if let Ok(p) = env::var("STM32CUBEWBA_DIR") {
@@ -56,7 +61,11 @@ fn main() {
     let lib = root.join("lib");
 
     assert!(inc.exists(), "Missing include dir: {}", inc.display());
-    assert!(inc_auto.exists(), "Missing include/auto dir: {}", inc_auto.display());
+    assert!(
+        inc_auto.exists(),
+        "Missing include/auto dir: {}",
+        inc_auto.display()
+    );
     assert!(lib.exists(), "Missing lib dir: {}", lib.display());
 
     // ---- link ST prebuilt static lib ----
@@ -87,11 +96,14 @@ fn main() {
         .use_core()
         .ctypes_prefix("cty")
         .generate_comments(true)
-        .clang_arg("-x").clang_arg("c")
+        .clang_arg("-x")
+        .clang_arg("c")
         .clang_arg("-std=c11")
-        .clang_arg("-target").clang_arg("arm-none-eabi")
+        .clang_arg("-target")
+        .clang_arg("arm-none-eabi")
         // pre-include the checked-in shim so macros are defined before ST headers
-        .clang_arg("-include").clang_arg(shim.to_string_lossy().to_string())
+        .clang_arg("-include")
+        .clang_arg(shim.to_string_lossy().to_string())
         // Force robust definitions for all packed macro spellings to avoid header-order surprises
         .clang_arg("-D__PACKED_BEGIN=")
         .clang_arg("-D__PACKED_END=__attribute__((__packed__))")
@@ -136,7 +148,8 @@ fn main() {
     if let Some(gcc_inc) = run(&gcc, &["-print-file-name=include"]).map(PathBuf::from) {
         builder = add_isystem_if_exists(builder, &gcc_inc, "GCC include");
         if let Some(ver_dir) = gcc_inc.parent() {
-            builder = add_isystem_if_exists(builder, &ver_dir.join("include-fixed"), "GCC include-fixed");
+            builder =
+                add_isystem_if_exists(builder, &ver_dir.join("include-fixed"), "GCC include-fixed");
         }
         // derive toolchain root from ".../arm-none-eabi/lib/gcc/..."
         let s = gcc_inc.to_string_lossy();
@@ -150,7 +163,10 @@ fn main() {
             );
             builder = add_isystem_if_exists(
                 builder,
-                &tool_root.join("arm-none-eabi").join("arm-none-eabi").join("include"),
+                &tool_root
+                    .join("arm-none-eabi")
+                    .join("arm-none-eabi")
+                    .join("include"),
                 "newlib include (B)",
             );
         }
@@ -158,9 +174,14 @@ fn main() {
 
     // Prefer canonicalized sysroot (removes any "/bin/../")
     if let Some(sysroot_raw) = run(&gcc, &["-print-sysroot"]) {
-        let sysroot = fs::canonicalize(PathBuf::from(sysroot_raw.clone())).unwrap_or(PathBuf::from(sysroot_raw));
+        let sysroot = fs::canonicalize(PathBuf::from(sysroot_raw.clone()))
+            .unwrap_or(PathBuf::from(sysroot_raw));
         builder = add_isystem_if_exists(builder, &sysroot.join("include"), "sysroot include");
-        builder = add_isystem_if_exists(builder, &sysroot.join("arm-none-eabi").join("include"), "sysroot arm-none-eabi/include");
+        builder = add_isystem_if_exists(
+            builder,
+            &sysroot.join("arm-none-eabi").join("include"),
+            "sysroot arm-none-eabi/include",
+        );
     }
 
     // Optional manual overrides

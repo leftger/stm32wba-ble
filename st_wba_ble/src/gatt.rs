@@ -2,8 +2,12 @@
 use crate::status::{BleStatus, Result};
 use st_wba_ble_sys::ffi;
 
-pub struct Service { pub handle: u16 }
-pub struct Char    { pub handle: u16 }
+pub struct Service {
+    pub handle: u16,
+}
+pub struct Char {
+    pub handle: u16,
+}
 
 /// Add a primary service with a 16-bit UUID.
 pub fn add_primary_service(uuid16: u16, max_attr_records: u8) -> Result<Service> {
@@ -16,9 +20,9 @@ pub fn add_primary_service(uuid16: u16, max_attr_records: u8) -> Result<Service>
     }
     let rc = unsafe {
         ffi::aci_gatt_add_service(
-            0x01,                         // UUID_TYPE_16
+            0x01, // UUID_TYPE_16
             &suuid as *const _,
-            0x01,                         // PRIMARY_SERVICE
+            0x01, // PRIMARY_SERVICE
             max_attr_records,
             &mut svc as *mut u16,
         )
@@ -41,14 +45,14 @@ pub fn add_char(svc: &Service, uuid16: u16, props: u8, perm: u8, len: u16) -> Re
     let rc = unsafe {
         ffi::aci_gatt_add_char(
             svc.handle,
-            0x01,                         // UUID_TYPE_16
+            0x01, // UUID_TYPE_16
             &cuuid as *const _,
             len,
             props,
             perm,
-            1,                            // GATT_Evt_Mask
-            0,                            // Encryption_Key_Size
-            0,                            // Is_Variable
+            1, // GATT_Evt_Mask
+            0, // Encryption_Key_Size
+            0, // Is_Variable
             &mut ch as *mut u16,
         )
     } as i32;
