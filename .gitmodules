@@ -1,0 +1,3 @@
+[submodule "external/STM32CubeWBA"]
+	path = external/STM32CubeWBA
+	url = https://github.com/STMicroelectronics/STM32CubeWBA.git
