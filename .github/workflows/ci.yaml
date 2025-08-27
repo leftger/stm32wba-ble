@@ -23,10 +23,23 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
+      - name: "Preflight: headers & libs present"
+        run: |
+          set -e
+          test -d STM32_WPAN/ble/stack/include || (echo "Missing headers"; exit 1)
+          test -d STM32_WPAN/ble/stack/lib     || (echo "Missing libs dir"; exit 1)
+          ls STM32_WPAN/ble/stack/lib/stm32wba_ble_stack*.a >/dev/null
+
       - name: Install Rust (stable) + Cortex-M target
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: thumbv8m.main-none-eabihf
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            /var/cache/apt/archives
+          key: apt-${{ runner.os }}-armgcc-${{ hashFiles('.github/workflows/ci.yaml') }}
 
       - name: Install system deps (ARM GCC + clang + newlib)
         run: |
@@ -58,6 +71,10 @@ jobs:
             cp -f "$a" "$dir/lib$(basename "$a")"
           done
           ls -la "$dir"
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
           
       - name: Build workspace
         run: |
