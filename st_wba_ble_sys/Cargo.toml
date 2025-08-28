@@ -16,6 +16,7 @@ basic_plus = []
 llo = []
 llobasic = []
 po = []
+compile_glue = []
 
 [dependencies]
 cty = "0.2.2"
