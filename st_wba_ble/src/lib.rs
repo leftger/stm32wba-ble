@@ -1,5 +1,7 @@
 #![no_std]
 // st_wba_ble/src/lib.rs
+#[cfg(feature = "rust-shims")]
+mod c_shims;
 use st_wba_ble_sys::ffi;
 
 // Only include modules that actually exist and are meant to build.

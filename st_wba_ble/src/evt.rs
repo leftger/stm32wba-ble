@@ -15,7 +15,7 @@ pub extern "C" fn hci_user_evt_rx(_pdata: *mut c_void) {}
 
 // Notify/wait hooks pattern — provide harmless stubs.
 #[unsafe(no_mangle)]
-pub extern "C" fn hci_notify_asynch_evt() {}
+pub extern "C" fn hci_notify_asynch_evt(_pdata: *mut core::ffi::c_void) {}
 
 #[unsafe(no_mangle)]
 pub extern "C" fn hci_cmd_resp_release(_flag: u32) {}

@@ -7,10 +7,13 @@ edition = "2024"
 st_wba_ble_sys = { path = "../st_wba_ble_sys" }
 embassy-executor = { git = "https://github.com/embassy-rs/embassy" }
 embassy-sync = { git = "https://github.com/embassy-rs/embassy" }
+embassy-time = { git = "https://github.com/embassy-rs/embassy", optional = true }
 
 [features]
 default = ["full"]
 compile_glue = ["st_wba_ble_sys/compile_glue"]
+rust-shims = []
+shim_hal_tick = ["embassy-time"]     # only if you enable HAL_GetTick
 
 # Forwarders:
 full        = ["st_wba_ble_sys/full"]
