@@ -363,8 +363,36 @@ fn build_wba_glue(repo_root: &std::path::Path) -> bool {
         return false;
     }
 
-    let wpan = repo_root.join("STM32_WPAN");
-    let target = wpan.join("Target");
+    // Prefer vendor tree under external/STM32CubeWBA (or STM32CUBEWBA_DIR) for headers,
+    // but keep project-local STM32_WPAN/{Target,System,App} for source files.
+    let vendor_root: Option<PathBuf> = if let Ok(p) = std::env::var("STM32CUBEWBA_DIR") {
+        Some(PathBuf::from(p))
+    } else {
+        [
+            repo_root.join("external/STM32CubeWBA"),
+            repo_root.join("vendor/STM32CubeWBA"),
+            repo_root.join("third_party/STM32CubeWBA"),
+        ]
+        .into_iter()
+        .find(|p| p.exists())
+    };
+
+    let wpan_vendor = vendor_root
+        .as_ref()
+        .map(|v| v.join("Middlewares/ST/STM32_WPAN"))
+        .filter(|p| p.exists())
+        .unwrap_or_else(|| repo_root.join("STM32_WPAN"));
+
+    let drivers = if repo_root.join("Drivers").exists() {
+        repo_root.join("Drivers")
+    } else if let Some(v) = &vendor_root {
+        v.join("Drivers")
+    } else {
+        repo_root.join("Drivers")
+    };
+
+    let wpan_project = repo_root.join("STM32_WPAN");
+    let target = wpan_project.join("Target");
     let system = repo_root.join("System");
     if !target.exists() {
         return false;
@@ -400,7 +428,6 @@ fn build_wba_glue(repo_root: &std::path::Path) -> bool {
     println!("cargo:rerun-if-changed={}", target.display());
     println!("cargo:rerun-if-changed={}", system.display());
 
-    let drivers = repo_root.join("Drivers");
     let mut b = cc::Build::new();
     for f in &files {
         b.file(f);
@@ -408,17 +435,23 @@ fn build_wba_glue(repo_root: &std::path::Path) -> bool {
 
     // Includes (Target/App/System + stack/LL + CMSIS/HAL)
     b.include(&target);
-    b.include(wpan.join("App"));
-    b.include(system.join("Config"));
-    b.include(system.join("Interfaces"));
-    b.include(system.join("Modules"));
-    b.include(wpan.join("ble/stack/include"));
-    b.include(wpan.join("ble/stack/include/auto"));
-    b.include(wpan.join("link_layer/ll_cmd_lib/inc"));
-    b.include(wpan.join("link_layer/ll_sys/inc"));
-    b.include(drivers.join("CMSIS/Include"));
-    b.include(drivers.join("CMSIS/Device/ST/STM32WBAxx/Include"));
-    b.include(drivers.join("STM32WBAxx_HAL_Driver/Inc"));
+    for inc in [
+        wpan_project.join("App"),
+        system.join("Config"),
+        system.join("Interfaces"),
+        system.join("Modules"),
+        wpan_vendor.join("ble/stack/include"),
+        wpan_vendor.join("ble/stack/include/auto"),
+        wpan_vendor.join("link_layer/ll_cmd_lib/inc"),
+        wpan_vendor.join("link_layer/ll_sys/inc"),
+        drivers.join("CMSIS/Include"),
+        drivers.join("CMSIS/Device/ST/STM32WBAxx/Include"),
+        drivers.join("STM32WBAxx_HAL_Driver/Inc"),
+    ] {
+        if inc.exists() {
+            b.include(inc);
+        }
+    }
 
     b.define("STM32WBAXX", None);
     b.flag_if_supported("-Wno-unused-parameter");

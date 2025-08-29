@@ -1,66 +1,67 @@
-// st_wba_ble/src/lib.rs
-#![no_std]
-// st_wba_ble/src/lib.rs
+use crate::status::{BleStatus, Result};
 use st_wba_ble_sys::ffi;
 
-// Only include modules that actually exist and are meant to build.
-pub mod evt;
-pub mod gatt;
-pub use gatt::{Service, Char, add_primary_service, add_char};
+/// Start undirected connectable advertising quickly with a given local name.
+///
+/// Uses 20–40 ms advertising interval, public address, no filter policy.
+pub fn start_fast_name(name: &str) -> Result<()> {
+    let adv_type_undirected: u8 = 0x00; // ADV_IND
+    let own_addr_public: u8 = 0x00;
+    let filter_allow_all: u8 = 0x00;
+    let min: u16 = 0x0020; // 20 ms
+    let max: u16 = 0x0040; // 40 ms
+    let name_len: u8 = name.len() as u8;
+    let name_ptr: *const u8 = name.as_bytes().as_ptr();
+    let uuid_len: u8 = 0;
+    let uuid_ptr: *const u8 = core::ptr::null();
+    let slave_ci_min: u16 = 0; // let stack choose
+    let slave_ci_max: u16 = 0; // let stack choose
 
-/// Lightweight status mapping for ACI return codes.
-pub mod status {
-    #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-    pub enum BleStatus {
-        Ok,
-        Other(i32),
+    let rc = unsafe {
+        ffi::aci_gap_set_discoverable(
+            adv_type_undirected,
+            min,
+            max,
+            own_addr_public,
+            filter_allow_all,
+            name_len,
+            name_ptr,
+            uuid_len,
+            uuid_ptr,
+            slave_ci_min,
+            slave_ci_max,
+        )
+    } as i32;
+    if BleStatus::from(rc) != BleStatus::Ok {
+        return Err(BleStatus::from(rc));
     }
-    impl From<i32> for BleStatus {
-        fn from(v: i32) -> Self {
-            if v == 0 { BleStatus::Ok } else { BleStatus::Other(v) }
-        }
+
+    // Ensure advertising is enabled.
+    let rc = unsafe { ffi::hci_le_set_advertising_enable(1) } as i32;
+    if BleStatus::from(rc) != BleStatus::Ok {
+        return Err(BleStatus::from(rc));
     }
-    pub type Result<T> = core::result::Result<T, BleStatus>;
+    Ok(())
 }
 
-pub struct Ble { _priv: () }
+/// Stop advertising.
+pub fn stop() -> Result<()> {
+    let rc = unsafe { ffi::hci_le_set_advertising_enable(0) } as i32;
+    if BleStatus::from(rc) == BleStatus::Ok {
+        Ok(())
+    } else {
+        Err(BleStatus::from(rc))
+    }
+}
 
-impl Ble {
-    /// Initialize the BLE stack for a GAP Peripheral role and optionally set the device name.
-    pub fn init_peripheral(dev_name: &str) -> status::Result<Self> {
-        unsafe {
-            // 1) GATT init
-            let rc = ffi::aci_gatt_init() as i32;
-            if status::BleStatus::from(rc) != status::BleStatus::Ok {
-                return Err(status::BleStatus::from(rc));
-            }
-
-            // 2) GAP init (Peripheral role, no privacy)
-            let (mut svc, mut name_h, mut app_h) = (0u16, 0u16, 0u16);
-            let rc = ffi::aci_gap_init(
-                0x01, // GAP Peripheral role (replace with ffi::GAP_PERIPHERAL_ROLE if present)
-                0,    // privacy off
-                dev_name.len() as u8,
-                &mut svc, &mut name_h, &mut app_h
-            ) as i32;
-            if status::BleStatus::from(rc) != status::BleStatus::Ok {
-                return Err(status::BleStatus::from(rc));
-            }
-
-            // 3) Optional: update the Device Name characteristic value
-            if !dev_name.is_empty() {
-                let rc = ffi::aci_gatt_update_char_value(
-                    svc,
-                    name_h,
-                    0u8,                        // offset
-                    dev_name.len() as u8,       // length
-                    dev_name.as_ptr(),          // value pointer
-                ) as i32;
-                if status::BleStatus::from(rc) != status::BleStatus::Ok {
-                    return Err(status::BleStatus::from(rc));
-                }
-            }
-        }
-        Ok(Ble { _priv: () })
+/// Replace current advertising data (<=31 bytes). Optional helper.
+pub fn set_adv_data(data: &[u8]) -> Result<()> {
+    let len: u8 = core::cmp::min(31, data.len()) as u8;
+    let ptr = data.as_ptr();
+    let rc = unsafe { ffi::hci_le_set_advertising_data(len, ptr) } as i32;
+    if BleStatus::from(rc) == BleStatus::Ok {
+        Ok(())
+    } else {
+        Err(BleStatus::from(rc))
     }
 }

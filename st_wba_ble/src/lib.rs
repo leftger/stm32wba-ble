@@ -5,9 +5,11 @@ mod c_shims;
 use st_wba_ble_sys::ffi;
 
 // Only include modules that actually exist and are meant to build.
+pub mod adv;
 pub mod evt;
 pub mod gatt;
-pub use gatt::{Char, Service, add_char, add_primary_service};
+pub use adv::{set_adv_data, start_fast_name, stop as adv_stop};
+pub use gatt::{Char, Service, add_char, add_primary_service, update_char_value};
 
 /// Lightweight status mapping for ACI return codes.
 pub mod status {
